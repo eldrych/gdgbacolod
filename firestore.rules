@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && 
+             request.auth.token.email == 'kenespiritu006@gmail.com' && 
+             request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidGuest(data) {
+      return data.keys().hasAll(['name', 'email']) &&
+             data.keys().size() == 2 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 150 &&
+             data.email.matches('^[^@]+@[^@]+\\.[^@]+$');
+    }
+
+    function isValidConfig(data) {
+      return data.keys().hasAll(['sheetId', 'lastSync']) &&
+             data.keys().size() == 2 &&
+             (data.sheetId == null || (data.sheetId is string && data.sheetId.size() <= 100)) &&
+             (data.lastSync == null || (data.lastSync is string && data.lastSync.size() <= 50));
+    }
+
+    // Matches
+    match /guests/{email} {
+      // Guests can read their own entry. 
+      // Since we check via email, lookup is a 'get' or a 'list' with where clause.
+      // For this app, the guest terminal does a direct path lookup via API or getDoc.
+      allow get: if true; // Publicly readable by email for check-in
+      
+      // Admin can write/list
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidGuest(incoming()) && incoming().email == email;
+      allow update: if isAdmin() && isValidGuest(incoming()) && incoming().email == existing().email;
+      allow delete: if isAdmin();
+    }
+
+    match /metadata/config {
+      allow read: if true; // App needs to know sheetId and count
+      allow write: if isAdmin() && isValidConfig(incoming());
+    }
+  }
+}

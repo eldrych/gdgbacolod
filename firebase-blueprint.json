@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "Guest": {
+      "title": "Guest",
+      "description": "An attendee for the GDG Bacolod event",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Full name of the guest"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the guest (normalized to lowercase)"
+        }
+      },
+      "required": ["name", "email"]
+    },
+    "Config": {
+      "title": "Config",
+      "description": "System configuration for the check-in terminal",
+      "type": "object",
+      "properties": {
+        "sheetId": {
+          "type": "string",
+          "description": "Google Spreadsheet ID"
+        },
+        "lastSync": {
+          "type": "string",
+          "description": "ISO timestamp of the last synchronization"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/guests/{email}": {
+      "schema": "Guest",
+      "description": "Collection of registered guests indexed by email"
+    },
+    "/metadata/config": {
+      "schema": "Config",
+      "description": "Global system configuration"
+    }
+  }
+}
