@@ -84,36 +84,48 @@ async function fetchAndSync() {
     if (!response.ok) return;
     const csvText = await response.text();
     
-    Papa.parse(csvText, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        if (results.data && Array.isArray(results.data)) {
-          const guests: Guest[] = results.data.map((item: any) => ({
-            name: String(item.name || item.Name || '').trim(),
-            email: String(item.email || item.Email || '').trim().toLowerCase()
-          })).filter(item => item.name && item.email);
+    return new Promise((resolve, reject) => {
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          try {
+            if (results.data && Array.isArray(results.data)) {
+              const guests: Guest[] = results.data.map((item: any) => ({
+                name: String(item.name || item.Name || '').trim(),
+                email: String(item.email || item.Email || '').trim().toLowerCase()
+              })).filter(item => item.name && item.email);
 
-          const CHUNK_SIZE = 400;
-          for (let i = 0; i < guests.length; i += CHUNK_SIZE) {
-            const chunk = guests.slice(i, i + CHUNK_SIZE);
-            const subBatch = db.batch();
-            chunk.forEach(guest => {
-              const docRef = db.collection('guests').doc(guest.email);
-              subBatch.set(docRef, guest);
-            });
-            await subBatch.commit();
+              const CHUNK_SIZE = 400;
+              for (let i = 0; i < guests.length; i += CHUNK_SIZE) {
+                const chunk = guests.slice(i, i + CHUNK_SIZE);
+                const subBatch = db.batch();
+                chunk.forEach(guest => {
+                  const docRef = db.collection('guests').doc(guest.email);
+                  subBatch.set(docRef, guest);
+                });
+                await subBatch.commit();
+              }
+
+              const syncTime = new Date().toISOString();
+              await saveConfigToFirestore({
+                lastSync: syncTime,
+                count: guests.length
+              });
+              resolve(true);
+            } else {
+              resolve(false);
+            }
+          } catch (e) {
+            reject(e);
           }
-
-          const syncTime = new Date().toISOString();
-          await saveConfigToFirestore({
-            lastSync: syncTime,
-            count: guests.length
-          });
-        }
-      }
+        },
+        error: (err) => reject(err)
+      });
     });
-  } catch (error) {}
+  } catch (error) {
+    console.error('Fetch error:', error);
+  }
 }
 
 // API Routes

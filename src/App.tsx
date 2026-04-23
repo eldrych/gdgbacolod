@@ -405,12 +405,16 @@ export default function App() {
                       </code>
                     </div>
 
-                    <div className="space-y-2">
-                       <p className="text-[10px] font-bold text-slate-600">How to set up:</p>
+                    <div className="space-y-3">
+                       <p className="text-[10px] font-bold text-slate-600">How to set up (Critical):</p>
                        <ol className="text-[10px] text-slate-500 list-decimal ml-4 space-y-1">
                          <li>In your Google Sheet, go to <b>Extensions</b> &gt; <b>Apps Script</b>.</li>
-                         <li>Paste this code: <code>function onEdit() {"{"} UrlFetchApp.fetch("{window.location.origin}/api/webhook/sync", {"{"}method: "post"{"}"}) {"}"}</code></li>
-                         <li>Click <b>Save</b> and your sheet is now LIVE!</li>
+                         <li>Paste this code: <code>function triggerSync() {"{"} UrlFetchApp.fetch("{window.location.origin}/api/webhook/sync", {"{"}method: "post"{"}"}) {"}"}</code></li>
+                         <li>Click the <b>Clock icon (Triggers)</b> on the left sidebar.</li>
+                         <li>Click <b>+ Add Trigger</b>.</li>
+                         <li>Set "Choose which function to run" to <b>triggerSync</b>.</li>
+                         <li>Set "Select event type" to <b>On edit</b>.</li>
+                         <li>Click <b>Save</b> (you'll need to authorize it).</li>
                        </ol>
                     </div>
                   </div>
