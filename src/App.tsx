@@ -41,6 +41,8 @@ function AppContent() {
   const [importCount, setImportCount] = useState<number | null>(null);
   const [sheetId, setSheetId] = useState('');
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [previewData, setPreviewData] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const location = useLocation();
   const isAdminView = location.pathname === '/administrator-access';
 
@@ -62,62 +64,71 @@ function AppContent() {
       .catch(err => console.error('Failed to fetch status', err));
   }, []);
 
-  const downloadCertificate = (name: string) => {
-    setIsGenerating(true);
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = "/certificate_template.png"; // Expecting the template at this path
-    
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Use the actual image dimensions
-      canvas.width = img.width;
-      canvas.height = img.height;
-
-      // 1. Draw Template
-      ctx.drawImage(img, 0, 0);
-
-      // 2. Prepare Name Styling
-      // Based on the provided template, the "blank" is roughly in the middle
-      // vertically and needs to be centered horizontally.
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height * 0.485; // Adjusted to be closer to the blank line
+  const generateCertificateBuffer = (name: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = "/certificate_template.png";
       
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#000000'; // Basic black font as requested
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject('No context');
 
-      // Dynamic Font Size logic
-      let fontSize = 90; // Starting font size
-      const maxWidth = canvas.width * 0.7; // 70% width margin
-      
-      ctx.font = `bold ${fontSize}px "Inter", sans-serif`;
-      
-      // Reduce font size until it fits within the maxWidth
-      while (ctx.measureText(name.toUpperCase()).width > maxWidth && fontSize > 40) {
-        fontSize -= 5;
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height * 0.485;
+        
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#000000';
+
+        let fontSize = 90;
+        const maxWidth = canvas.width * 0.7;
         ctx.font = `bold ${fontSize}px "Inter", sans-serif`;
-      }
+        
+        while (ctx.measureText(name.toUpperCase()).width > maxWidth && fontSize > 40) {
+          fontSize -= 5;
+          ctx.font = `bold ${fontSize}px "Inter", sans-serif`;
+        }
 
-      // 3. Draw the Name
-      ctx.fillText(name.toUpperCase(), centerX, centerY);
+        ctx.fillText(name.toUpperCase(), centerX, centerY);
+        resolve(canvas.toDataURL('image/png'));
+      };
 
-      // 4. Download
+      img.onerror = () => reject('Failed to load template');
+    });
+  };
+
+  const handlePreview = async (name: string) => {
+    setIsGenerating(true);
+    try {
+      const dataUrl = await generateCertificateBuffer(name);
+      setPreviewData(dataUrl);
+      setIsPreviewOpen(true);
+    } catch (e) {
+      alert("Certificate template not found. Please ensure the template image is uploaded to the public folder.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const downloadCertificate = async (name: string) => {
+    setIsGenerating(true);
+    try {
+      const dataUrl = previewData || await generateCertificateBuffer(name);
       const link = document.createElement('a');
       link.download = `Certificate_${name.replace(/\s+/g, '_')}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       link.click();
+    } catch (e) {
+       alert("Certificate template not found. Please ensure the template image is uploaded to the public folder.");
+    } finally {
       setIsGenerating(false);
-    };
-
-    img.onerror = () => {
-      console.error("Failed to load certificate template. Ensure /public/certificate_template.png exists.");
-      alert("Certificate template not found. Please ensure the template image is uploaded to the public folder.");
-      setIsGenerating(false);
-    };
+    }
   };
 
   const handleSheetSync = async (e: React.FormEvent) => {
@@ -162,39 +173,39 @@ function AppContent() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800">
-      {/* Sidebar - Inspired by Professional Polish Aside */}
-      <aside className="w-64 bg-[#202124] flex flex-col text-white shadow-xl hidden md:flex fixed h-full z-50">
-        <div className="p-6 border-b border-white/5">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <div className="flex gap-0.5">
-                <div className="w-2 h-2 rounded-full bg-[#4285F4]"></div>
-                <div className="w-2 h-2 rounded-full bg-[#EA4335]"></div>
-                <div className="w-2 h-2 rounded-full bg-[#FBBC04]"></div>
-                <div className="w-2 h-2 rounded-full bg-[#34A853]"></div>
+    <div className={`flex min-h-screen ${isAdminView ? 'bg-slate-100' : 'bg-white'} font-sans text-slate-800`}>
+      {/* Sidebar - Only for Admin */}
+      {isAdminView && (
+        <aside className="w-64 bg-[#202124] flex flex-col text-white shadow-xl hidden md:flex fixed h-full z-50">
+          <div className="p-6 border-b border-white/5">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-0.5">
+                  <div className="w-2 h-2 rounded-full bg-[#4285F4]"></div>
+                  <div className="w-2 h-2 rounded-full bg-[#EA4335]"></div>
+                  <div className="w-2 h-2 rounded-full bg-[#FBBC04]"></div>
+                  <div className="w-2 h-2 rounded-full bg-[#34A853]"></div>
+                </div>
+                <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">Community</span>
               </div>
-              <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">Community</span>
+              <h1 className="text-xl font-bold tracking-tighter">
+                GDG <span className="text-white/60 font-light">Bacolod</span>
+              </h1>
             </div>
-            <h1 className="text-xl font-bold tracking-tighter">
-              GDG <span className="text-white/60 font-light">Bacolod</span>
-            </h1>
           </div>
-        </div>
-        
-        <nav className="flex-1 p-4 space-y-2">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) => `w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-3 transition-all ${
-              isActive ? 'bg-[#4285F4]/10 text-[#4285F4]' : 'text-slate-400 hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            <LayoutDashboard size={18} />
-            Guest Entry
-          </NavLink>
           
-          {isAdminView && (
+          <nav className="flex-1 p-4 space-y-2">
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) => `w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-3 transition-all ${
+                isActive ? 'bg-[#4285F4]/10 text-[#4285F4]' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <LayoutDashboard size={18} />
+              Guest Entry
+            </NavLink>
+            
             <NavLink
               to="/administrator-access"
               className={({ isActive }) => `w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-3 transition-all ${
@@ -204,146 +215,158 @@ function AppContent() {
               <ShieldCheck size={18} />
               Management
             </NavLink>
-          )}
-          
-          <div className="pt-4 mt-4 border-t border-slate-800">
-            <div className="px-4 py-2 text-xs text-slate-500 flex items-center gap-2">
-              <Users size={14} /> Registered: {importCount || 0}
+            
+            <div className="pt-4 mt-4 border-t border-slate-800">
+              <div className="px-4 py-2 text-xs text-slate-500 flex items-center gap-2">
+                <Users size={14} /> Registered: {importCount || 0}
+              </div>
             </div>
-            <div className="px-4 py-2 text-xs text-slate-500 flex items-center gap-2">
-              <Database size={14} /> Database Online
-            </div>
-          </div>
-        </nav>
-        
-        <div className="p-6 mt-auto text-xs text-slate-500 border-t border-slate-800 flex items-center justify-between">
-          <span>System Status</span>
-          <span className="text-emerald-500 font-bold uppercase tracking-tighter">Online</span>
-        </div>
-      </aside>
+          </nav>
+        </aside>
+      )}
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col md:ml-64">
-        {/* Header - Inspired by Professional Polish Header */}
-        <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shadow-sm sticky top-0 z-40">
-          <h2 className="text-sm font-medium uppercase tracking-widest text-slate-500">
-            {isAdminView ? 'Registry Control Panel' : 'Event Verification Portal'}
-          </h2>
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-xs font-semibold">Active Session</p>
-              <p className="text-[10px] text-slate-400 uppercase tracking-tighter">System-Guest-Auth</p>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-              <User size={16} className="text-slate-500" />
-            </div>
+      <main className={`flex-1 flex flex-col ${isAdminView ? 'md:ml-64' : ''}`}>
+        {/* Branding Logo - Top Center for Guests */}
+        {!isAdminView && (
+          <div className="flex justify-center p-8">
+            <img src="/gdgbcd_logo.png" alt="GDG Bacolod Logo" className="h-12 md:h-16 object-contain" />
           </div>
-        </header>
+        )}
 
-        {/* Content - Matches the split or focused layout behavior */}
-        <div className="flex-1 p-6 md:p-10 max-w-5xl mx-auto w-full">
+        {/* Header - Only for Admin */}
+        {isAdminView && (
+          <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shadow-sm sticky top-0 z-40">
+            <h2 className="text-sm font-medium uppercase tracking-widest text-slate-500">
+              Registry Control Panel
+            </h2>
+            <div className="flex items-center gap-4">
+              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
+                <User size={16} className="text-slate-500" />
+              </div>
+            </div>
+          </header>
+        )}
+
+        {/* Content */}
+        <div className={`flex-1 p-6 md:p-10 ${!isAdminView ? 'flex items-center justify-center' : 'max-w-5xl mx-auto w-full'}`}>
           <Routes>
             <Route path="/" element={
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="max-w-2xl mx-auto space-y-6"
+                className="max-w-xl w-full space-y-6"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-2xl font-bold tracking-tight text-slate-900">Guest Experience</h3>
-                  <span className="px-2 py-1 bg-slate-200 text-slate-600 text-[10px] font-bold rounded uppercase">Active Portal</span>
-                </div>
-
-                <div className="bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col">
-                  <div className="bg-slate-50 p-6 sm:p-8 border-b border-slate-200">
-                    <div className="flex items-center gap-3 mb-2">
-                       <span className="px-2 py-0.5 bg-[#4285F4]/10 text-[#4285F4] text-[10px] font-bold rounded uppercase tracking-widest border border-[#4285F4]/20">Verified Event</span>
-                    </div>
-                    <h4 className="text-xl font-bold text-slate-800">Check-in Terminal</h4>
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                      Please enter your registration email to verify your attendance for the <span className="text-slate-600 font-semibold underline decoration-[#FBBC04] underline-offset-2">GDG Bacolod Event</span>.
+                <div className="bg-white border border-slate-100 rounded-2xl shadow-[0_32px_64px_-15px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col border-t-4 border-[#4285F4]">
+                  <div className="bg-slate-50/50 p-6 sm:p-10 border-b border-slate-100 text-center">
+                    <h4 className="text-2xl font-bold text-slate-900 tracking-tight">Certificate Portal</h4>
+                    <p className="text-sm text-slate-500 mt-2">
+                      Build With AI 2026
                     </p>
                   </div>
 
                   <div className="p-6 sm:p-10 space-y-8">
-                    <form onSubmit={handleCheckEmail} className="space-y-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">
-                          Attendee Email Identifier
-                        </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                            <Mail size={16} />
+                    {!checkResult ? (
+                      <form onSubmit={handleCheckEmail} className="space-y-6">
+                        <div className="space-y-3">
+                          <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">
+                            Attendee Registration Email
+                          </label>
+                          <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
+                               <div className="w-10 h-10 rounded-lg flex items-center justify-center text-slate-400 group-focus-within:text-[#4285F4] transition-colors">
+                                 <Mail size={18} />
+                               </div>
+                            </div>
+                            <input
+                              type="email"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              placeholder="you@example.com"
+                              required
+                              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-4 focus:ring-[#4285F4]/10 focus:border-[#4285F4] transition-all placeholder:text-slate-300"
+                            />
                           </div>
-                          <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="e.g. attendee@gdgbacolod.com"
-                            required
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-4 focus:ring-[#4285F4]/10 focus:border-[#4285F4] transition-all placeholder:text-slate-300"
-                          />
                         </div>
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={isChecking}
-                        className="w-full py-4 bg-[#4285F4] text-white font-bold rounded-lg shadow-lg shadow-[#4285F4]/20 hover:bg-[#3367D6] transition-all active:scale-[0.98] disabled:bg-slate-300 disabled:shadow-none flex items-center justify-center gap-2"
-                      >
-                        {isChecking ? <Loader2 size={20} className="animate-spin" /> : "Confirm Attendance"}
-                      </button>
-                    </form>
-
-                    {checkResult && (
+                        <button
+                          type="submit"
+                          disabled={isChecking}
+                          className="w-full py-4 bg-[#4285F4] text-white font-bold rounded-xl shadow-xl shadow-[#4285F4]/20 hover:bg-[#3367D6] hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:bg-slate-300 disabled:shadow-none flex items-center justify-center gap-2"
+                        >
+                          {isChecking ? <Loader2 size={22} className="animate-spin" /> : "Verify Attendance"}
+                        </button>
+                      </form>
+                    ) : (
                       <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="pt-8 border-t border-slate-100"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="space-y-6"
                       >
                         {checkResult.found ? (
-                          <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-6 flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-200 shrink-0">
-                              <CheckCircle2 size={24} className="text-white" />
+                          <div className="text-center space-y-6">
+                            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-50 text-emerald-500 mb-2">
+                              <CheckCircle2 size={40} strokeWidth={2.5} />
                             </div>
-                            <div>
-                              <p className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Verification Successful</p>
-                              <p className="text-lg font-bold text-slate-800 leading-tight">Welcome back, {checkResult.name}</p>
-                              <p className="text-xs text-slate-400 mt-0.5 italic mb-4">Access credentials granted for this session.</p>
-                              
+                            <div className="space-y-2">
+                              <h5 className="text-2xl font-bold text-slate-900 leading-tight">Confirmed Attendance</h5>
+                              <p className="text-slate-500">
+                                <span className="font-semibold text-slate-800">{checkResult.name}</span>, you are verified for <span className="font-bold text-[#34A853]">Build With AI 2026</span>.
+                              </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+                              <button
+                                onClick={() => handlePreview(checkResult.name!)}
+                                disabled={isGenerating}
+                                className="flex items-center justify-center gap-2 py-4 px-6 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all disabled:opacity-50"
+                              >
+                                {isGenerating ? <Loader2 size={18} className="animate-spin text-slate-400" /> : <Award size={18} />}
+                                Preview
+                              </button>
                               <button
                                 onClick={() => downloadCertificate(checkResult.name!)}
                                 disabled={isGenerating}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-all active:scale-[0.98] disabled:bg-slate-300"
+                                className="flex items-center justify-center gap-2 py-4 px-6 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 hover:-translate-y-0.5 transition-all disabled:bg-slate-300"
                               >
-                                {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Award size={14} />}
-                                {isGenerating ? "Preparing..." : "Get Certificate"}
+                                {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                                Download PNG
                               </button>
                             </div>
+                            
+                            <button 
+                              onClick={() => { setCheckResult(null); setEmail(''); setPreviewData(null); }}
+                              className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors"
+                            >
+                              Check another email
+                            </button>
                           </div>
                         ) : (
-                          <div className="bg-red-50 border border-red-100 rounded-lg p-6 flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center shadow-lg shadow-red-200 shrink-0">
-                              <XCircle size={24} className="text-white" />
+                          <div className="text-center space-y-6">
+                            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-50 text-red-500 mb-2">
+                              <XCircle size={40} strokeWidth={2.5} />
                             </div>
-                            <div>
-                              <p className="text-[10px] uppercase font-bold text-red-600 tracking-wider">Entry Denied</p>
-                              <p className="text-lg font-bold text-slate-800 leading-tight italic">Registry: Sorry, Unavailable</p>
-                              <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                                Identified email was not matched in the current active directory.
+                            <div className="space-y-2">
+                              <h5 className="text-2xl font-bold text-slate-900 leading-tight">No Record Found</h5>
+                              <p className="text-slate-500 px-4">
+                                The email <span className="font-semibold">{email}</span> was not found in our attendance list for Build With AI 2026.
                               </p>
                             </div>
+                            <button
+                              onClick={() => { setCheckResult(null); setEmail(''); }}
+                              className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all"
+                            >
+                              Try Again
+                            </button>
                           </div>
                         )}
                       </motion.div>
                     )}
                   </div>
-
-                  <div className="p-4 text-center border-t border-slate-50 bg-slate-50/50">
-                    <p className="text-[9px] text-slate-300 font-medium uppercase tracking-[0.2em] flex items-center justify-center gap-2">
-                      <Fingerprint size={10} /> Encrypted Identity Verification System
-                    </p>
-                  </div>
                 </div>
+
+                <p className="text-center text-[10px] text-slate-300 font-bold uppercase tracking-[0.3em]">
+                  © 2026 GDG Bacolod Community
+                </p>
               </motion.div>
             } />
             
@@ -515,6 +538,55 @@ function AppContent() {
           </Routes>
         </div>
       </main>
+
+      {/* Preview Modal */}
+      <AnimatePresence>
+        {isPreviewOpen && previewData && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPreviewOpen(false)}
+              className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col"
+            >
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="font-bold text-slate-800">Certificate Preview</h3>
+                <button 
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <XCircle size={20} className="text-slate-400" />
+                </button>
+              </div>
+              <div className="p-6 bg-slate-50 flex items-center justify-center overflow-auto max-h-[70vh]">
+                <img src={previewData} alt="Certificate Preview" className="max-w-full h-auto shadow-lg rounded" />
+              </div>
+              <div className="p-6 border-t border-slate-100 flex justify-end gap-4">
+                <button
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="px-6 py-2 text-slate-500 font-bold hover:text-slate-700 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => checkResult?.name && downloadCertificate(checkResult.name)}
+                  className="px-8 py-2 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2"
+                >
+                  <Download size={18} />
+                  Download PNG
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Footer / Mobile Nav - removed admin toggles for guest view */}
       {isAdminView && (

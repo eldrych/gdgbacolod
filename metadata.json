@@ -1,6 +1,6 @@
 {
-  "name": "Guest Checker",
-  "description": "An admin-managed guest list application where guests can verify their presence via email.",
+  "name": "GDG Bacolod Certificate",
+  "description": "Verification and certificate download portal for GDG Bacolod event participants.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
