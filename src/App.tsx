@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Upload, 
@@ -23,10 +24,15 @@ import {
   Award
 } from 'lucide-react';
 
-type ViewMode = 'guest' | 'admin';
-
 export default function App() {
-  const [view, setView] = useState<ViewMode>('guest');
+  return (
+    <Router>
+      <AppContent />
+    </Router>
+  );
+}
+
+function AppContent() {
   const [email, setEmail] = useState('');
   const [checkResult, setCheckResult] = useState<{ found: boolean; name?: string } | null>(null);
   const [isChecking, setIsChecking] = useState(false);
@@ -35,6 +41,8 @@ export default function App() {
   const [importCount, setImportCount] = useState<number | null>(null);
   const [sheetId, setSheetId] = useState('');
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const location = useLocation();
+  const isAdminView = location.pathname === '/administrator-access';
 
   React.useEffect(() => {
     // Fetch current status from server on load
@@ -76,7 +84,7 @@ export default function App() {
       // Based on the provided template, the "blank" is roughly in the middle
       // vertically and needs to be centered horizontally.
       const centerX = canvas.width / 2;
-      const centerY = canvas.height * 0.465; // Approximate center of the blank line based on the visual
+      const centerY = canvas.height * 0.485; // Adjusted to be closer to the blank line
       
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -175,24 +183,28 @@ export default function App() {
         </div>
         
         <nav className="flex-1 p-4 space-y-2">
-          <button
-            onClick={() => setView('guest')}
-            className={`w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-3 transition-all ${
-              view === 'guest' ? 'bg-[#4285F4]/10 text-[#4285F4]' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) => `w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-3 transition-all ${
+              isActive ? 'bg-[#4285F4]/10 text-[#4285F4]' : 'text-slate-400 hover:bg-white/5 hover:text-white'
             }`}
           >
             <LayoutDashboard size={18} />
             Guest Entry
-          </button>
-          <button
-            onClick={() => setView('admin')}
-            className={`w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-3 transition-all ${
-              view === 'admin' ? 'bg-[#EA4335]/10 text-[#EA4335]' : 'text-slate-400 hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            <ShieldCheck size={18} />
-            Management
-          </button>
+          </NavLink>
+          
+          {isAdminView && (
+            <NavLink
+              to="/administrator-access"
+              className={({ isActive }) => `w-full px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-3 transition-all ${
+                isActive ? 'bg-[#EA4335]/10 text-[#EA4335]' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <ShieldCheck size={18} />
+              Management
+            </NavLink>
+          )}
           
           <div className="pt-4 mt-4 border-t border-slate-800">
             <div className="px-4 py-2 text-xs text-slate-500 flex items-center gap-2">
@@ -215,7 +227,7 @@ export default function App() {
         {/* Header - Inspired by Professional Polish Header */}
         <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shadow-sm sticky top-0 z-40">
           <h2 className="text-sm font-medium uppercase tracking-widest text-slate-500">
-            Registry Control Panel
+            {isAdminView ? 'Registry Control Panel' : 'Event Verification Portal'}
           </h2>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
@@ -230,13 +242,11 @@ export default function App() {
 
         {/* Content - Matches the split or focused layout behavior */}
         <div className="flex-1 p-6 md:p-10 max-w-5xl mx-auto w-full">
-          <AnimatePresence mode="wait">
-            {view === 'guest' ? (
+          <Routes>
+            <Route path="/" element={
               <motion.div
-                key="guest"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
                 className="max-w-2xl mx-auto space-y-6"
               >
                 <div className="flex items-center justify-between mb-2">
@@ -335,12 +345,12 @@ export default function App() {
                   </div>
                 </div>
               </motion.div>
-            ) : (
+            } />
+            
+            <Route path="/administrator-access" element={
               <motion.div
-                key="admin"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
                 className="space-y-8"
               >
                 <div className="flex items-center justify-between">
@@ -499,19 +509,23 @@ export default function App() {
                   </div>
                 </div>
               </motion.div>
-            )}
-          </AnimatePresence>
+            } />
+            
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </div>
       </main>
 
-      {/* Footer / Mobile Nav - keeping it simple */}
-      <footer className="fixed bottom-0 left-0 right-0 p-4 md:hidden flex justify-center z-50 pointer-events-none">
-        <div className="px-6 py-2 bg-slate-900 text-white rounded-full border border-slate-800 text-[10px] uppercase tracking-widest font-bold shadow-2xl pointer-events-auto flex gap-6">
-          <button onClick={() => setView('guest')} className={view === 'guest' ? 'text-emerald-400' : ''}>Guest</button>
-          <div className="w-[1px] bg-slate-700"></div>
-          <button onClick={() => setView('admin')} className={view === 'admin' ? 'text-emerald-400' : ''}>Admin</button>
-        </div>
-      </footer>
+      {/* Footer / Mobile Nav - removed admin toggles for guest view */}
+      {isAdminView && (
+        <footer className="fixed bottom-0 left-0 right-0 p-4 md:hidden flex justify-center z-50 pointer-events-none">
+          <div className="px-6 py-2 bg-slate-900 text-white rounded-full border border-slate-800 text-[10px] uppercase tracking-widest font-bold shadow-2xl pointer-events-auto flex gap-6">
+            <NavLink to="/" end className={({ isActive }) => isActive ? 'text-emerald-400' : ''}>Guest</NavLink>
+            <div className="w-[1px] bg-slate-700"></div>
+            <NavLink to="/administrator-access" className={({ isActive }) => isActive ? 'text-emerald-400' : ''}>Admin</NavLink>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }
