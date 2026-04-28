@@ -56,83 +56,60 @@ export default function App() {
 
   const downloadCertificate = (name: string) => {
     setIsGenerating(true);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set high resolution for printing
-    canvas.width = 2000;
-    canvas.height = 1414; // A4 ratio
-
-    // 1. Background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 2. Decorative Border (GDG Colors)
-    const colors = ['#4285F4', '#EA4335', '#FBBC04', '#34A853'];
-    const borderWeight = 30;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = "/certificate_template.png"; // Expecting the template at this path
     
-    // Modern striped border at the top
-    ctx.fillStyle = colors[0];
-    ctx.fillRect(0, 0, canvas.width / 4, borderWeight);
-    ctx.fillStyle = colors[1];
-    ctx.fillRect(canvas.width / 4, 0, canvas.width / 4, borderWeight);
-    ctx.fillStyle = colors[2];
-    ctx.fillRect(canvas.width / 2, 0, canvas.width / 4, borderWeight);
-    ctx.fillStyle = colors[3];
-    ctx.fillRect((canvas.width / 4) * 3, 0, canvas.width / 4, borderWeight);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    // 3. Text content
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.textAlign = 'center';
+      // Use the actual image dimensions
+      canvas.width = img.width;
+      canvas.height = img.height;
 
-    // "Certificate of Appreciation"
-    ctx.fillStyle = '#202124';
-    ctx.font = 'bold 90px Inter, sans-serif';
-    ctx.fillText('CERTIFICATE OF APPRECIATION', 0, -350);
+      // 1. Draw Template
+      ctx.drawImage(img, 0, 0);
 
-    // Subtitle
-    ctx.fillStyle = '#5F6368';
-    ctx.font = '300 40px Inter, sans-serif';
-    ctx.fillText('This certificate is proudly presented to', 0, -220);
+      // 2. Prepare Name Styling
+      // Based on the provided template, the "blank" is roughly in the middle
+      // vertically and needs to be centered horizontally.
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height * 0.465; // Approximate center of the blank line based on the visual
+      
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000000'; // Basic black font as requested
 
-    // Name
-    ctx.fillStyle = '#4285F4';
-    ctx.font = 'bold italic 120px Inter, sans-serif';
-    ctx.fillText(name.toUpperCase(), 0, -80);
+      // Dynamic Font Size logic
+      let fontSize = 90; // Starting font size
+      const maxWidth = canvas.width * 0.7; // 70% width margin
+      
+      ctx.font = `bold ${fontSize}px "Inter", sans-serif`;
+      
+      // Reduce font size until it fits within the maxWidth
+      while (ctx.measureText(name.toUpperCase()).width > maxWidth && fontSize > 40) {
+        fontSize -= 5;
+        ctx.font = `bold ${fontSize}px "Inter", sans-serif`;
+      }
 
-    // Description text
-    ctx.fillStyle = '#202124';
-    ctx.font = '400 35px Inter, sans-serif';
-    ctx.fillText('In recognition of your valuable attendance and participation', 0, 80);
-    ctx.fillText('at the GDG Bacolod event.', 0, 140);
+      // 3. Draw the Name
+      ctx.fillText(name.toUpperCase(), centerX, centerY);
 
-    // Signature Area
-    ctx.beginPath();
-    ctx.moveTo(-400, 450);
-    ctx.lineTo(-100, 450);
-    ctx.strokeStyle = '#5F6368';
-    ctx.stroke();
-    
-    ctx.font = 'bold 25px Inter, sans-serif';
-    ctx.fillStyle = '#202124';
-    ctx.fillText('GDG BACOLOD Team', -250, 490);
+      // 4. Download
+      const link = document.createElement('a');
+      link.download = `Certificate_${name.replace(/\s+/g, '_')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      setIsGenerating(false);
+    };
 
-    // Date
-    ctx.font = 'bold 25px Inter, sans-serif';
-    ctx.fillStyle = '#202124';
-    ctx.fillText('Date: ' + new Date().toLocaleDateString(), 250, 490);
-    ctx.beginPath();
-    ctx.moveTo(100, 450);
-    ctx.lineTo(400, 450);
-    ctx.stroke();
-
-    // 4. Download
-    const link = document.createElement('a');
-    link.download = `Certificate_${name.replace(/\s+/g, '_')}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-    setIsGenerating(false);
+    img.onerror = () => {
+      console.error("Failed to load certificate template. Ensure /public/certificate_template.png exists.");
+      alert("Certificate template not found. Please ensure the template image is uploaded to the public folder.");
+      setIsGenerating(false);
+    };
   };
 
   const handleSheetSync = async (e: React.FormEvent) => {
