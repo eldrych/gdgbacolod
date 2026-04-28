@@ -21,7 +21,9 @@ import {
   CloudUpload,
   Download,
   Fingerprint,
-  Award
+  Award,
+  Facebook,
+  Globe
 } from 'lucide-react';
 
 export default function App() {
@@ -339,8 +341,29 @@ function AppContent() {
                               : 'bg-gradient-to-r from-slate-200 via-white to-slate-200 text-slate-900 border border-white/50 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] hover:brightness-110 active:brightness-90 transition-all duration-500'
                           }`}
                         >
-                          {isChecking ? <Loader2 size={26} className="animate-spin" /> : "Initiate Verification"}
+                          {isChecking ? <Loader2 size={26} className="animate-spin" /> : "Verify Attendee"}
                         </button>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-8 border-t border-white/5">
+                          <a 
+                            href="https://gdg.community.dev/gdg-bacolod" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-[10px] font-bold rounded-xl border border-slate-800 hover:bg-slate-800 transition-all shining-btn-effect w-full"
+                          >
+                            <Globe size={14} />
+                            About GDG Bacolod
+                          </a>
+                          <a 
+                            href="https://www.facebook.com/gdgbacolod" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white text-[10px] font-bold rounded-xl border border-slate-800 hover:bg-slate-800 transition-all shining-btn-effect w-full"
+                          >
+                            <Facebook size={14} />
+                            GDG Bacolod Social
+                          </a>
+                        </div>
                       </form>
                     ) : (
                       <motion.div
@@ -418,8 +441,8 @@ function AppContent() {
                   </div>
                 </div>
 
-                <p className={`text-center text-[10px] font-black uppercase tracking-[0.6em] pt-6 ${isAdminView ? 'text-slate-300' : 'text-white/10'}`}>
-                  © 2026 GDG BACOLOD COMMUNITY
+                <p className={`text-center text-[10px] font-black uppercase tracking-normal pt-6 ${isAdminView ? 'text-slate-300' : 'text-white/10'}`}>
+                  © 2026 GDG BACOLOD - AI Innovations Team . All Rights Reserved
                 </p>
               </motion.div>
             } />
