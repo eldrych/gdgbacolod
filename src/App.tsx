@@ -18,7 +18,9 @@ import {
   Users,
   Database,
   CloudUpload,
-  Fingerprint
+  Download,
+  Fingerprint,
+  Award
 } from 'lucide-react';
 
 type ViewMode = 'guest' | 'admin';
@@ -29,6 +31,7 @@ export default function App() {
   const [checkResult, setCheckResult] = useState<{ found: boolean; name?: string } | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [importCount, setImportCount] = useState<number | null>(null);
   const [sheetId, setSheetId] = useState('');
   const [lastSync, setLastSync] = useState<string | null>(null);
@@ -50,6 +53,87 @@ export default function App() {
       })
       .catch(err => console.error('Failed to fetch status', err));
   }, []);
+
+  const downloadCertificate = (name: string) => {
+    setIsGenerating(true);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set high resolution for printing
+    canvas.width = 2000;
+    canvas.height = 1414; // A4 ratio
+
+    // 1. Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. Decorative Border (GDG Colors)
+    const colors = ['#4285F4', '#EA4335', '#FBBC04', '#34A853'];
+    const borderWeight = 30;
+    
+    // Modern striped border at the top
+    ctx.fillStyle = colors[0];
+    ctx.fillRect(0, 0, canvas.width / 4, borderWeight);
+    ctx.fillStyle = colors[1];
+    ctx.fillRect(canvas.width / 4, 0, canvas.width / 4, borderWeight);
+    ctx.fillStyle = colors[2];
+    ctx.fillRect(canvas.width / 2, 0, canvas.width / 4, borderWeight);
+    ctx.fillStyle = colors[3];
+    ctx.fillRect((canvas.width / 4) * 3, 0, canvas.width / 4, borderWeight);
+
+    // 3. Text content
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.textAlign = 'center';
+
+    // "Certificate of Appreciation"
+    ctx.fillStyle = '#202124';
+    ctx.font = 'bold 90px Inter, sans-serif';
+    ctx.fillText('CERTIFICATE OF APPRECIATION', 0, -350);
+
+    // Subtitle
+    ctx.fillStyle = '#5F6368';
+    ctx.font = '300 40px Inter, sans-serif';
+    ctx.fillText('This certificate is proudly presented to', 0, -220);
+
+    // Name
+    ctx.fillStyle = '#4285F4';
+    ctx.font = 'bold italic 120px Inter, sans-serif';
+    ctx.fillText(name.toUpperCase(), 0, -80);
+
+    // Description text
+    ctx.fillStyle = '#202124';
+    ctx.font = '400 35px Inter, sans-serif';
+    ctx.fillText('In recognition of your valuable attendance and participation', 0, 80);
+    ctx.fillText('at the GDG Bacolod event.', 0, 140);
+
+    // Signature Area
+    ctx.beginPath();
+    ctx.moveTo(-400, 450);
+    ctx.lineTo(-100, 450);
+    ctx.strokeStyle = '#5F6368';
+    ctx.stroke();
+    
+    ctx.font = 'bold 25px Inter, sans-serif';
+    ctx.fillStyle = '#202124';
+    ctx.fillText('GDG BACOLOD Team', -250, 490);
+
+    // Date
+    ctx.font = 'bold 25px Inter, sans-serif';
+    ctx.fillStyle = '#202124';
+    ctx.fillText('Date: ' + new Date().toLocaleDateString(), 250, 490);
+    ctx.beginPath();
+    ctx.moveTo(100, 450);
+    ctx.lineTo(400, 450);
+    ctx.stroke();
+
+    // 4. Download
+    const link = document.createElement('a');
+    link.download = `Certificate_${name.replace(/\s+/g, '_')}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    setIsGenerating(false);
+  };
 
   const handleSheetSync = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,7 +321,16 @@ export default function App() {
                             <div>
                               <p className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Verification Successful</p>
                               <p className="text-lg font-bold text-slate-800 leading-tight">Welcome back, {checkResult.name}</p>
-                              <p className="text-xs text-slate-400 mt-0.5 italic">Access credentials granted for this session.</p>
+                              <p className="text-xs text-slate-400 mt-0.5 italic mb-4">Access credentials granted for this session.</p>
+                              
+                              <button
+                                onClick={() => downloadCertificate(checkResult.name!)}
+                                disabled={isGenerating}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-all active:scale-[0.98] disabled:bg-slate-300"
+                              >
+                                {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Award size={14} />}
+                                {isGenerating ? "Preparing..." : "Get Certificate"}
+                              </button>
                             </div>
                           </div>
                         ) : (
